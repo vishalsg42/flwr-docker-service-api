@@ -1,0 +1,25 @@
+FROM python:3.8-slim
+
+# Install git
+RUN apt-get update && apt-get install -y git && apt-get clean
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Set the working directory
+WORKDIR /app
+
+# Clone the GitHub repository
+RUN git clone https://github.com/vishalsg42/flwr-monitioring-sample-app.git /app
+
+# Install Python dependencies
+RUN pip install -r requirements.txt
+    
+ENV SERVER_IP=host.docker.internal
+ENV SERVER_PORT=8080
+
+# Set the entry point to run client.py
+ENTRYPOINT ["python", "client.py"]
+
+CMD ["--server-ip", "host.docker.internal", "--server-port", "8080"]
