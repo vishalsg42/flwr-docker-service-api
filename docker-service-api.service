@@ -1,0 +1,12 @@
+[Unit]
+Description=Docker Service API
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory=/home/ubuntu/flwr-docker-service-api
+ExecStart=/home/ubuntu/flower-ai-pytorch/.venv/bin/python app.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
