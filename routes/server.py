@@ -2,6 +2,7 @@ from aiohttp import web
 from services.repo_validation import clone_and_validate_repo
 from services.dockerfile_generator import generate_server_dockerfile, generate_server_compose_file
 
+
 async def server_endpoint(request):
     data = await request.json()
     github_url = data.get('github_url')
@@ -21,9 +22,9 @@ async def server_endpoint(request):
         prometheus_port = data.get('prometheus_port')
 
         dockerfile = await generate_server_dockerfile(
-            github_url, 
-            monitoring_tool, 
-            prometheus_ip=prometheus_ip, 
+            github_url,
+            monitoring_tool,
+            prometheus_ip=prometheus_ip,
             prometheus_port=prometheus_port,
             server_ip=server_ip,
             server_port=server_port
@@ -33,16 +34,17 @@ async def server_endpoint(request):
         wandb_base_url = data.get('wandb_base_url')
         wandb_project_name = data.get('wandb_project_name')
         dockerfile = await generate_server_dockerfile(
-            github_url, 
-            monitoring_tool, 
-            wandb_api_key=wandb_api_key, 
-            wandb_base_url=wandb_base_url, 
+            github_url,
+            monitoring_tool,
+            wandb_api_key=wandb_api_key,
+            wandb_base_url=wandb_base_url,
             wandb_project_name=wandb_project_name,
             server_ip=server_ip,
             server_port=server_port
         )
 
     return web.Response(text=dockerfile, content_type='text/plain')
+
 
 async def server_compose_endpoint(request):
     data = await request.json()

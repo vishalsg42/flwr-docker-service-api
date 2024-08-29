@@ -1,0 +1,197 @@
+openapi: 3.0.0
+info:
+  title: Docker Service API
+  version: 1.0.0
+  description: API for generating Dockerfiles and Docker Compose files based on GitHub repositories and monitoring tools.
+
+servers:
+  - url: http://3.95.62.233:8090/v1
+    description: EC2 server
+  - url: http://0.0.0.0:8090/v1
+    description: Local server
+
+paths:
+  # /server:
+  #   post:
+  #     summary: Generate a Dockerfile for the server
+  #     tags:
+  #       - Server
+  #     requestBody:
+  #       required: true
+  #       content:
+  #         application/json:
+  #           schema:
+  #             type: object
+  #             required:
+  #               - github_url
+  #               - monitoring_tool
+  #             properties:
+  #               github_url:
+  #                 type: string
+  #                 example: "https://github.com/your/repo"
+  #               monitoring_tool:
+  #                 type: string
+  #                 enum: [prometheus, wandb]
+  #                 example: "prometheus"
+  #               prometheus_ip:
+  #                 type: string
+  #                 example: "0.0.0.0"
+  #               prometheus_port:
+  #                 type: integer
+  #                 example: 8000
+  #               wandb_api_key:
+  #                 type: string
+  #                 example: "f59537fb3f2c0637963296163cda8ab11147405a"
+  #               wandb_base_url:
+  #                 type: string
+  #                 example: "https://api.wandb.ai"
+  #               wandb_project_name:
+  #                 type: string
+  #                 example: "sample-test-project"
+  #               server_ip:
+  #                 type: string
+  #                 example: "0.0.0.0"
+  #               server_port:
+  #                 type: integer
+  #                 example: 8080
+  #     responses:
+  #       '200':
+  #         description: Dockerfile generated successfully
+  #         content:
+  #           text/plain:
+  #             schema:
+  #               type: string
+  #       '400':
+  #         description: Invalid input
+
+  /server-compose:
+    post:
+      summary: Generate a Docker Compose file for the server
+      tags:
+        - Server
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - github_url
+                - monitoring_tool
+              properties:
+                github_url:
+                  type: string
+                  example: "https://github.com/vishalsg42/flwr-monitioring-sample-app.git"
+                monitoring_tool:
+                  type: string
+                  enum: [prometheus, wandb]
+                  example: "wandb"
+                prometheus_ip:
+                  type: string
+                  example: "0.0.0.0"
+                prometheus_port:
+                  type: integer
+                  example: 8000
+                wandb_api_key:
+                  type: string
+                  example: "abcdefghijklmnopqrstuvwxyz"
+                wandb_base_url:
+                  type: string
+                  example: "https://api.wandb.ai"
+                wandb_project_name:
+                  type: string
+                  example: "sample-test-project"
+                server_ip:
+                  type: string
+                  example: "0.0.0.0"
+                server_port:
+                  type: integer
+                  example: 8080
+      responses:
+        '200':
+          description: Docker Compose file generated successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+        '400':
+          description: Invalid input
+
+  # /client:
+  #   post:
+  #     summary: Generate a Dockerfile for the client
+  #     tags:
+  #       - Client
+  #     requestBody:
+  #       required: true
+  #       content:
+  #         application/json:
+  #           schema:
+  #             type: object
+  #             required:
+  #               - github_url
+  #               - monitoring_tool
+  #             properties:
+  #               github_url:
+  #                 type: string
+  #                 example: "https://github.com/your/repo"
+  #               monitoring_tool:
+  #                 type: string
+  #                 enum: [prometheus, wandb]
+  #                 example: "prometheus"
+  #               server_ip:
+  #                 type: string
+  #                 example: "0.0.0.0"
+  #               server_port:
+  #                 type: integer
+  #                 example: 8080
+  #     responses:
+  #       '200':
+  #         description: Dockerfile generated successfully
+  #         content:
+  #           text/plain:
+  #             schema:
+  #               type: string
+  #       '400':
+  #         description: Invalid input
+
+  /client-compose:
+    post:
+      summary: Generate a Docker Compose file for the client
+      tags:
+        - Client
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - github_url
+                - monitoring_tool
+              properties:
+                github_url:
+                  type: string
+                  example: "https://github.com/vishalsg42/flwr-monitioring-sample-app.git"
+                monitoring_tool:
+                  type: string
+                  enum: [prometheus, wandb]
+                  example: "wandb"
+                server_ip:
+                  type: string
+                  example: "0.0.0.0"
+                server_port:
+                  type: integer
+                  example: 8080
+      responses:
+        '200':
+          description: Docker Compose file generated successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+        '400':
+          description: Invalid input
+        '500':
+          description: Internal server error
+
