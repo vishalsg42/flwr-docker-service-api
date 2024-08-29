@@ -37,13 +37,8 @@ CMD ["--server-ip", "$SERVER_IP", "--server-port", "$SERVER_PORT", "--prometheus
         """
     elif monitoring_tool == "wandb":
         dockerfile += f"""
-# Set WandB environment variables
-ENV WANDB_API_KEY="{wandb_api_key}"
-ENV WANDB_BASE_URL="{wandb_base_url}"
-ENV WANDB_PROJECT_NAME="{wandb_project_name}"
-
 ENTRYPOINT ["python", "server.py"]
-CMD ["--server-ip", "$SERVER_IP", "--server-port", "$SERVER_PORT", "--wandb-api-key", "$WANDB_API_KEY", "--wandb-base-url", "$WANDB_BASE_URL", "--wandb-project-name", "$WANDB_PROJECT_NAME"]
+CMD ["--server-ip", "$SERVER_IP", "--server-port", "$SERVER_PORT", "--project-name", "$WANDB_PROJECT_NAME"]
         """
     return dockerfile.strip()
 
@@ -76,7 +71,6 @@ async def generate_server_compose_file(
     indented_dockerfile_content = '\n'.join([f"        {line}" for line in dockerfile_content.splitlines()])
 
     compose_file = f"""
-version: '3.9'
 services:
   server:
     build:
@@ -103,11 +97,11 @@ services:
       WANDB_API_KEY: "{wandb_api_key}"
       WANDB_BASE_URL: "{wandb_base_url}"
       WANDB_PROJECT_NAME: "{wandb_project_name}"
-    command: ["--server-ip", "{server_ip}", "--server-port", "{server_port}", "--wandb-api-key", "{wandb_api_key}", "--wandb-base-url", "{wandb_base_url}", "--wandb-project-name", "{wandb_project_name}"]
+    command: ["--server-ip", "{server_ip}", "--server-port", "{server_port}"]
     ports:
       - "{server_port}:{server_port}"
     """
-    
+
     compose_file += """
     networks:
       - app_network
@@ -120,8 +114,8 @@ networks:
     return compose_file.strip()
 
 
-async def generate_client_dockerfile(github_url, server_ip=None, server_port=None):
-    dockerfile = f"""
+async def generate_client_dockerfile(github_url, monitoring_tool="prometheus",server_ip=None, server_port=None):
+  dockerfile = f"""
 FROM python:3.8-slim
 
 # Install git
@@ -140,11 +134,21 @@ RUN git clone {github_url} /app
 # Install Python dependencies
 RUN pip install -r requirements.txt
 
-# Set the entry point to run client.py
+# Set the entry point to run client.py"""
+ # Add environment variables and command based on the monitoring tool
+  # Set the entry point to run client.py
+  if monitoring_tool == "prometheus":
+        dockerfile += f"""
 ENTRYPOINT ["python", "client.py"]
 CMD ["--server-ip", "$SERVER_IP", "--server-port", "$SERVER_PORT"]
-    """
-    return dockerfile.strip()
+        """
+  elif monitoring_tool == "wandb":
+        dockerfile += f"""
+ENTRYPOINT ["python", "client.py"]
+CMD ["--server-ip", "$SERVER_IP", "--server-port", "$SERVER_PORT"]
+        """
+
+  return dockerfile.strip()
 
 async def generate_client_compose_file(github_url, server_ip=None, server_port=None):
     # Generate the Dockerfile content inline
@@ -154,7 +158,6 @@ async def generate_client_compose_file(github_url, server_ip=None, server_port=N
     indented_dockerfile_content = '\n'.join([f"        {line}" for line in dockerfile_content.splitlines()])
 
     compose_file = f"""
-version: '3.9'
 services:
   client:
     build:
@@ -164,8 +167,6 @@ services:
     environment:
       - SERVER_IP={server_ip if server_ip else "0.0.0.0"}
       - SERVER_PORT={server_port if server_port else "8080"}
-    depends_on:
-      - server
     networks:
       - app_network
 networks:
