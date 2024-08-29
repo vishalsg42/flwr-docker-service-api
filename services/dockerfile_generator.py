@@ -1,4 +1,14 @@
-async def generate_server_dockerfile(github_url, monitoring_tool, prometheus_ip=None, prometheus_port=None, wandb_api_key=None, wandb_base_url=None, wandb_project_name=None, server_ip=None, server_port=None):
+async def generate_server_dockerfile(
+    github_url,
+    monitoring_tool,
+    prometheus_ip=None,
+    prometheus_port=None,
+    wandb_api_key=None,
+    wandb_base_url=None,
+    wandb_project_name=None,
+    server_ip=None,
+    server_port=None
+):
     dockerfile = f"""
 FROM python:3.8-slim
 
@@ -19,42 +29,98 @@ RUN git clone {github_url} /app
 RUN pip install -r requirements.txt
     """
 
+    # Adjust the Dockerfile based on the monitoring tool
     if monitoring_tool == "prometheus":
-        # Add Prometheus specific environment variables
         dockerfile += f"""
-ENV SERVER_IP={server_ip}
-ENV SERVER_PORT={server_port}
-ENV PROMETHEUS_IP={prometheus_ip}
-ENV PROMETHEUS_PORT={prometheus_port}
-
 ENTRYPOINT ["python", "server.py"]
-CMD ["--server-ip", "{server_ip}", "--server-port", "{server_port}", "--prometheus-ip", "{prometheus_ip}", "--prometheus-port", "{prometheus_port}"]
+CMD ["--server-ip", "$SERVER_IP", "--server-port", "$SERVER_PORT", "--prometheus-ip", "$PROMETHEUS_IP", "--prometheus-port", "$PROMETHEUS_PORT"]
         """
     elif monitoring_tool == "wandb":
-        # Add WandB specific environment variables and command
         dockerfile += f"""
+# Set WandB environment variables
 ENV WANDB_API_KEY="{wandb_api_key}"
 ENV WANDB_BASE_URL="{wandb_base_url}"
 ENV WANDB_PROJECT_NAME="{wandb_project_name}"
-ENV SERVER_IP={server_ip}
-ENV SERVER_PORT={server_port}
 
 ENTRYPOINT ["python", "server.py"]
-CMD ["--project-name", "{wandb_project_name}", "--server-ip", "{server_ip}",  "--server-port", "{server_port}"]
+CMD ["--server-ip", "$SERVER_IP", "--server-port", "$SERVER_PORT", "--wandb-api-key", "$WANDB_API_KEY", "--wandb-base-url", "$WANDB_BASE_URL", "--wandb-project-name", "$WANDB_PROJECT_NAME"]
         """
-    else:
-
-        # Default server command without additional monitoring tools
-        dockerfile += f"""
-ENTRYPOINT ["python", "server.py"]
-
-CMD ["--server-ip", "${{SERVER_IP}}", "--server-port", "${{SERVER_PORT}}"]
-        """
-
     return dockerfile.strip()
 
 
-async def generate_client_dockerfile(github_url, server_ip, server_port):
+async def generate_server_compose_file(
+    github_url,
+    monitoring_tool,
+    prometheus_ip=None,
+    prometheus_port=None,
+    wandb_api_key=None,
+    wandb_base_url=None,
+    wandb_project_name=None,
+    server_ip="0.0.0.0",
+    server_port=8080
+):
+    # Generate the Dockerfile content inline
+    dockerfile_content = await generate_server_dockerfile(
+        github_url,
+        monitoring_tool,
+        prometheus_ip,
+        prometheus_port,
+        wandb_api_key=wandb_api_key,
+        wandb_base_url=wandb_base_url,
+        wandb_project_name=wandb_project_name,
+        server_ip=server_ip,
+        server_port=server_port
+    )
+
+    # Properly indent the Dockerfile content for the dockerfile_inline
+    indented_dockerfile_content = '\n'.join([f"        {line}" for line in dockerfile_content.splitlines()])
+
+    compose_file = f"""
+version: '3.9'
+services:
+  server:
+    build:
+      context: .
+      dockerfile_inline: |
+{indented_dockerfile_content}
+    environment:
+      SERVER_IP: "{server_ip}"
+      SERVER_PORT: "{server_port}"
+    """
+
+    # Add environment variables and command based on the monitoring tool
+    if monitoring_tool == "prometheus":
+        compose_file += f"""
+      PROMETHEUS_IP: "{prometheus_ip}"
+      PROMETHEUS_PORT: "{prometheus_port}"
+    command: ["--server-ip", "{server_ip}", "--server-port", "{server_port}", "--prometheus-ip", "{prometheus_ip}", "--prometheus-port", "{prometheus_port}"]
+    ports:
+      - "{server_port}:{server_port}"
+      - "{prometheus_port}:{prometheus_port}"
+    """
+    elif monitoring_tool == "wandb":
+        compose_file += f"""
+      WANDB_API_KEY: "{wandb_api_key}"
+      WANDB_BASE_URL: "{wandb_base_url}"
+      WANDB_PROJECT_NAME: "{wandb_project_name}"
+    command: ["--server-ip", "{server_ip}", "--server-port", "{server_port}", "--wandb-api-key", "{wandb_api_key}", "--wandb-base-url", "{wandb_base_url}", "--wandb-project-name", "{wandb_project_name}"]
+    ports:
+      - "{server_port}:{server_port}"
+    """
+    
+    compose_file += """
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
+    """
+
+    return compose_file.strip()
+
+
+async def generate_client_dockerfile(github_url, server_ip=None, server_port=None):
     dockerfile = f"""
 FROM python:3.8-slim
 
@@ -73,17 +139,38 @@ RUN git clone {github_url} /app
 
 # Install Python dependencies
 RUN pip install -r requirements.txt
-    """
-
-    # Set the environment variables and command for the client
-    dockerfile += f"""
-ENV SERVER_IP={server_ip}
-ENV SERVER_PORT={server_port}
 
 # Set the entry point to run client.py
 ENTRYPOINT ["python", "client.py"]
+CMD ["--server-ip", "$SERVER_IP", "--server-port", "$SERVER_PORT"]
+    """
+    return dockerfile.strip()
 
-CMD ["--server-ip", "{server_ip}", "--server-port", "{server_port}"]
+async def generate_client_compose_file(github_url, server_ip=None, server_port=None):
+    # Generate the Dockerfile content inline
+    dockerfile_content = await generate_client_dockerfile(github_url, server_ip, server_port)
+
+    # Properly indent the Dockerfile content for the dockerfile_inline
+    indented_dockerfile_content = '\n'.join([f"        {line}" for line in dockerfile_content.splitlines()])
+
+    compose_file = f"""
+version: '3.9'
+services:
+  client:
+    build:
+      context: .
+      dockerfile_inline: |
+{indented_dockerfile_content}
+    environment:
+      - SERVER_IP={server_ip if server_ip else "0.0.0.0"}
+      - SERVER_PORT={server_port if server_port else "8080"}
+    depends_on:
+      - server
+    networks:
+      - app_network
+networks:
+  app_network:
+    driver: bridge
     """
 
-    return dockerfile.strip()
+    return compose_file.strip()
